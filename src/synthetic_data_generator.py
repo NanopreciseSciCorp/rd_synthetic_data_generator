@@ -1,6 +1,5 @@
 import itertools
 import random
-import math
 import numpy as np
 import logging
 from copy import deepcopy
@@ -66,11 +65,14 @@ class SyntethicDataGenerator:
             "outer_race": self._create_only_harmonics,
             "gearmesh": self._create_harmonics_and_sidebands
         }
+        self.freq_grid = []
 
     def run(self, params):
         harm_freq_per_fault = {}
         harm_ampl_per_fault = {}
         fault_types = []
+        self.freq_grid = [float(round(x*params["fres"], 3))
+                          for x in range(int(params["fmax"]/params["fres"]))]
 
         for fault_name, fault_params in params.items():
             if fault_name in self.synthetic_faults_function:
@@ -98,7 +100,7 @@ class SyntethicDataGenerator:
         params["her"], params["ser"] = self._calculate_energy_statistics(
             harm_ampl, [])
         harm_freq, harm_ampl = self.round_to_resolution(
-            harm_freq, harm_ampl, fres, fmax)
+            harm_freq, harm_ampl, fres)
         return harm_freq, harm_ampl, params
 
     def _create_harmonics_and_sidebands(self, params: dict, fmax: int, rps: float, fres: float) -> tuple[list[float], list[float], dict]:
@@ -109,13 +111,13 @@ class SyntethicDataGenerator:
         harm_freq, harm_ampl = self._generate_harmonics(params["fundamental"], params["harcount"],
                                                         params["harslope"], params["amplitude"], fmax, rps)
         peaks_sideband_freq, peaks_sideband_ampl = self._generate_sidebands(
-            harm_freq, harm_ampl, params["sideband_count"], params["sideband_freq"]*rps, params["sideband_ratio"], params["sideband_slope"])
+            harm_freq, harm_ampl, params["sideband_count"], params["sideband_order"]*rps, params["sideband_ratio"], params["sideband_slope"])
         params["her"], params["ser"] = self._calculate_energy_statistics(
             harm_ampl, peaks_sideband_ampl)
         rand_ampl = self._randomize_amplitudes(
             peaks_sideband_ampl, params["pattern_noise"])
         harm_freq, harm_ampl = self.round_to_resolution(
-            peaks_sideband_freq, rand_ampl, fres, fmax)
+            peaks_sideband_freq, rand_ampl, fres)
         return harm_freq, harm_ampl, params
 
     def _generate_harmonics(self, fundamental, n_harmonics, harmonics_ratio, max_amplitude, frequency_range, rps):
@@ -171,7 +173,7 @@ class SyntethicDataGenerator:
             sideband_energy = 0
         return harmonic_energy, sideband_energy
 
-    def round_to_resolution(self, harmonics_frequencies, harmonics_amplitudes, frequency_resolution, maximum_frequency):
+    def round_to_resolution(self, harmonics_frequencies, harmonics_amplitudes, frequency_resolution):
         def calculate_neighbour_weight(neighbour, harmonics_frequency, close_far_border=1.5):
             close_neighbours_dist_power = 0.7
             far_neighbours_dist_power = 0.5
@@ -180,30 +182,23 @@ class SyntethicDataGenerator:
             else:
                 return 1/(abs(neighbour-harmonics_frequency)**far_neighbours_dist_power)
 
-        # TODO - generalize for different frequency_resolution
-        if frequency_resolution != 1:
-            logging.error(
-                f"Working only for resolution equal to 1. This resolution is {frequency_resolution}.")
-            raise ValueError
-
         new_harmonics_frequencies = []
         new_harmonics_amplitudes = []
         for har_index in range(len(harmonics_frequencies)):
             harmonics_frequency = harmonics_frequencies[har_index]
             harmonics_amplitude = harmonics_amplitudes[har_index]
-            decimal_harmonic, integer_harmonic = math.modf(
-                harmonics_frequency)
-            if decimal_harmonic == 0:
-                if integer_harmonic in new_harmonics_frequencies:
-                    index = new_harmonics_frequencies.index(integer_harmonic)
+            if harmonics_frequency % frequency_resolution == 0:
+                if harmonics_frequency in new_harmonics_frequencies:
+                    index = new_harmonics_frequencies.index(
+                        harmonics_frequency)
                     new_harmonics_amplitudes[index] += harmonics_amplitude
                 else:
-                    new_harmonics_frequencies.append(integer_harmonic)
+                    new_harmonics_frequencies.append(harmonics_frequency)
                     new_harmonics_amplitudes.append(harmonics_amplitude)
                 continue
 
-            sorted_frequencies = sorted(range(maximum_frequency), key=lambda elem: abs(
-                elem - harmonics_frequency))
+            sorted_frequencies = sorted(
+                self.freq_grid, key=lambda elem: abs(elem - harmonics_frequency))
             n_closest_neigbours = sorted_frequencies[:self.n_peaks_to_split]
             neighbours_weights = [calculate_neighbour_weight(
                 neighbour, harmonics_frequency) for neighbour in n_closest_neigbours]
@@ -211,16 +206,16 @@ class SyntethicDataGenerator:
                 neighbour_weight/sum(neighbours_weights) for neighbour_weight in neighbours_weights]
 
             for i in range(self.n_peaks_to_split):
-                integer_harmonic = n_closest_neigbours[i]
-                integer_share = neighbours_shares[i]
-                if integer_harmonic in new_harmonics_frequencies:
-                    index = new_harmonics_frequencies.index(integer_harmonic)
+                harmonic_res_part = n_closest_neigbours[i]
+                harmonic_res_share = neighbours_shares[i]
+                if harmonic_res_part in new_harmonics_frequencies:
+                    index = new_harmonics_frequencies.index(harmonic_res_part)
                     new_harmonics_amplitudes[index] += harmonics_amplitude * \
-                        integer_share
+                        harmonic_res_share
                 else:
-                    new_harmonics_frequencies.append(integer_harmonic)
+                    new_harmonics_frequencies.append(harmonic_res_part)
                     new_harmonics_amplitudes.append(
-                        harmonics_amplitude*integer_share)
+                        harmonics_amplitude*harmonic_res_share)
         return new_harmonics_frequencies, new_harmonics_amplitudes
 
     def _merge_patterns(self, harm_freq: dict, harm_ampl: dict) -> tuple[list, list, list]:

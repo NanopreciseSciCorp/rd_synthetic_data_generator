@@ -8,24 +8,20 @@ from src.synthetic_data_generator import flatten_values
 
 
 class SyntheticDataNoiser():
-    def __init__(self) -> None:
+    def __init__(self, fmax, fres) -> None:
         self.random_count = random.choice(
             np.arange(10, 50, 20, dtype=np.int_))
         self.random_max_amplitude = 1.0  # 2.0
         self.random_min_amplitude = 0.1  # 0.2
         # random.choice(np.arange(0.1, 1.0, 0.25, dtype=np.float_))
         self.noise = 0.1
+        self.freq_grid = [float(round(x*fres, 3))
+                          for x in range(int(fmax/fres))]
 
-    def update_data_description(self, description: str):
-        updated_description = description + \
-            "_".join((str(self.random_count), str(self.random_max_amplitude),
-                     str(self.random_min_amplitude), str(self.noise)))
-        return updated_description
-
-    def create_random_peaks(self, frequencies: list, amplitudes: list, max_frequency: int):
+    def create_random_peaks(self, frequencies: list, amplitudes: list):
         count = 0
         while count < self.random_count:
-            random_frequency = random.randint(1, max_frequency)
+            random_frequency = random.choice(self.freq_grid)
             if random_frequency not in frequencies:
                 frequencies.append(random_frequency)
                 amplitudes.append(random.uniform(
@@ -33,9 +29,9 @@ class SyntheticDataNoiser():
                 count += 1
         return frequencies, amplitudes
 
-    def create_white_noise(self, frequencies: list, amplitudes: list, max_frequency: int):
-        white_noise_frequencies = [i for i in range(
-            0, max_frequency+1) if i not in frequencies]
+    def create_white_noise(self, frequencies: list, amplitudes: list):
+        white_noise_frequencies = [
+            i for i in self.freq_grid if i not in frequencies]
         white_noise_amplitudes = [random.uniform(
             0, self.noise) for _ in range(len(white_noise_frequencies))]
 

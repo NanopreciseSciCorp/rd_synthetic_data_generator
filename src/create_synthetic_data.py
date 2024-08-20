@@ -19,7 +19,7 @@ all_params = {
         "harslope": [0.8],
         "sideband_ratio": list(np.arange(0.1, 0.7, 0.3, dtype=np.float_)),
         "sideband_slope": [0.8],
-        "sideband_freq": [1],
+        "sideband_order": [1],
         "sideband_count": list(np.arange(1, 5, 2, dtype=np.int_)),
         "pattern_noise": [0.2],
     },
@@ -37,7 +37,7 @@ all_params = {
     #     "harslope": [0.8],
     #     "sideband_ratio": list(np.arange(0.1, 0.7, 0.3, dtype=np.float_)),
     #     "sideband_slope": [0.8],
-    #     "sideband_freq": [1],
+    #     "sideband_order": [1],
     #     "sideband_count": list(np.arange(1, 3, 1, dtype=np.int_)),
     #     "pattern_noise": [0.2]
     # },
@@ -74,11 +74,12 @@ def single_run(recipe_params):
     synthetic_data = SyntethicDataGenerator(
         glob_n_peaks_to_split).run(recipe_params)
 
-    synthetic_data_noiser = SyntheticDataNoiser()
+    synthetic_data_noiser = SyntheticDataNoiser(
+        synthetic_data["fmax"], synthetic_data["fres"])
     synthetic_data["frequencies"], synthetic_data["amplitudes"] = synthetic_data_noiser.create_random_peaks(
-        synthetic_data["frequencies"], synthetic_data["amplitudes"], synthetic_data["fmax"])
+        synthetic_data["frequencies"], synthetic_data["amplitudes"])
     synthetic_data["frequencies"], synthetic_data["amplitudes"] = synthetic_data_noiser.create_white_noise(
-        synthetic_data["frequencies"], synthetic_data["amplitudes"], synthetic_data["fmax"])
+        synthetic_data["frequencies"], synthetic_data["amplitudes"])
     synthetic_data["frequencies"], synthetic_data["amplitudes"] = synthetic_data_noiser.sort(
         synthetic_data["frequencies"], synthetic_data["amplitudes"])
     synthetic_data_noiser.save(synthetic_data, glob_output_path)
