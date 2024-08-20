@@ -1,6 +1,5 @@
 import numpy as np
-
-from src.rd_patternfinder.create_synthetic_data import SyntethicDataCreator
+from src.synthetic_data_generator import SyntethicDataGenerator
 
 
 # Test round_to_resolution
@@ -9,10 +8,12 @@ def test_round_to_resolution():
     harmonics_amplitudes = [10, 6.66]
     frequency_resolution = 1
     maximum_frequency = 20
-    ex = SyntethicDataCreator('testpath', 5)
+    ex = SyntethicDataGenerator(5)
+    ex.freq_grid = [float(round(x*frequency_resolution, 3))
+                    for x in range(int(maximum_frequency/frequency_resolution))]
 
     new_harmonics_frequencies, new_harmonics_amplitudes = ex.round_to_resolution(
-        harmonics_frequencies, harmonics_amplitudes, frequency_resolution, maximum_frequency)
+        harmonics_frequencies, harmonics_amplitudes, frequency_resolution)
 
     # Check results
     assert np.array_equal(new_harmonics_frequencies, [5, 6, 4, 7, 3, 14.0])
