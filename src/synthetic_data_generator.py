@@ -111,7 +111,7 @@ class SyntethicDataGenerator:
         harm_freq, harm_ampl = self._generate_harmonics(params["fundamental"], params["harcount"],
                                                         params["harslope"], params["amplitude"], fmax, rps)
         peaks_sideband_freq, peaks_sideband_ampl = self._generate_sidebands(
-            harm_freq, harm_ampl, params["sideband_count"], params["sideband_order"]*rps, params["sideband_ratio"], params["sideband_slope"])
+            harm_freq, harm_ampl, params["sideband_count"], params["sideband_freq"]*rps, params["sideband_ratio"], params["sideband_slope"])
         params["her"], params["ser"] = self._calculate_energy_statistics(
             harm_ampl, peaks_sideband_ampl)
         rand_ampl = self._randomize_amplitudes(

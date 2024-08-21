@@ -1,6 +1,7 @@
 
 import multiprocessing
 import click
+import random
 import numpy as np
 from tqdm import tqdm
 from src.synthetic_data_generator import SyntethicDataGenerator, flatten_dict, create_combinations_limited, unflatten_dict, merge_two_params_comb
@@ -8,24 +9,24 @@ from src.synthetic_data_noiser import SyntheticDataNoiser
 
 
 all_params = {
-    "rps": list(np.arange(2, 60, 1, dtype=np.int_)),
+    "rps": list(np.arange(5, 60, 0.3, dtype=np.float_)),
     "fres": [1],
     "fmax": [6000],
     # GROUP 1
     "inner_race": {
-        "fundamental": list(np.arange(3.141, 14, 0.261, dtype=np.float_)),
-        "amplitude": list(np.arange(0.2, 3.0, 0.6, dtype=np.float_)),
-        "harcount": list(np.arange(5, 12, 3, dtype=np.int_)),
-        "harslope": [0.8],
+        "fundamental": list(np.arange(2.4, 12.9, random.uniform(0.081, 0.121), dtype=np.float_)),
+        "amplitude": list(np.arange(5, 15, 1, dtype=np.float_)),
+        "harcount": list(np.arange(5, 20, 3, dtype=np.int_)),
+        "harslope": list(np.arange(0.6, 0.9, 0.2, dtype=np.float_)),
         "sideband_ratio": list(np.arange(0.1, 0.7, 0.3, dtype=np.float_)),
         "sideband_slope": [0.8],
-        "sideband_order": [1],
-        "sideband_count": list(np.arange(1, 5, 2, dtype=np.int_)),
-        "pattern_noise": [0.2],
+        "sideband_freq": [1],
+        "sideband_count": list(np.arange(1, 4, 1, dtype=np.int_)),
+        "pattern_noise": [0.2]
     },
     "unbalance": {
         "fundamental": [1.0],
-        "amplitude": [7],
+        "amplitude": list(np.arange(5, 15, 2, dtype=np.float_)),
         "harcount": [1],
         "harslope": [0]
     },
@@ -37,7 +38,7 @@ all_params = {
     #     "harslope": [0.8],
     #     "sideband_ratio": list(np.arange(0.1, 0.7, 0.3, dtype=np.float_)),
     #     "sideband_slope": [0.8],
-    #     "sideband_order": [1],
+    #     "sideband_freq": [1],
     #     "sideband_count": list(np.arange(1, 3, 1, dtype=np.int_)),
     #     "pattern_noise": [0.2]
     # },
@@ -99,7 +100,7 @@ def run_script(output_path, n_peaks_to_split, n_scenarios):
 
     all_combinations = merge_two_params_comb(all_combinations, n_scenarios)
 
-    with multiprocessing.Pool(initializer=init_worker, initargs=(output_path, n_peaks_to_split,)) as pool:
+    with multiprocessing.Pool(initializer=init_worker, initargs=(output_path, n_peaks_to_split)) as pool:
         list(tqdm(pool.imap(single_run, all_combinations), total=len(all_combinations)))
 
 
