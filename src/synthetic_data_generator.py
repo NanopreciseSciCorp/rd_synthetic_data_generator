@@ -67,28 +67,32 @@ class SyntethicDataGenerator:
         }
         self.freq_grid = []
 
-    def run(self, params):
+    def run(self, spectrum_params):
         harm_freq_per_fault = {}
         harm_ampl_per_fault = {}
         fault_types = []
-        self.freq_grid = [float(round(x*params["fres"], 3))
-                          for x in range(int(params["fmax"]/params["fres"]))]
+        self.freq_grid = [float(round(x*spectrum_params["fres"], 3))
+                          for x in range(int(spectrum_params["fmax"]/spectrum_params["fres"]))]
 
-        for fault_name, fault_params in params.items():
+        for fault_name, fault_params in spectrum_params.items():
             if fault_name in self.synthetic_faults_function:
                 harm_freq_per_fault[fault_name], harm_ampl_per_fault[fault_name], updated_fault_params = self.synthetic_faults_function[fault_name](
-                    fault_params, params["fmax"], params["rps"], params["fres"])
-                params[fault_name].update(updated_fault_params)
+                    fault_params, spectrum_params["fmax"], spectrum_params["rps"], spectrum_params["fres"])
+                spectrum_params[fault_name].update(updated_fault_params)
                 fault_types.append(fault_name)
 
         harm_freq_unified, harm_ampl_unified, fault_labels = self._merge_patterns(
             harm_freq_per_fault, harm_ampl_per_fault)
-        harm_freq_unified, harm_ampl_unified, fault_labels, params = self._format(
-            harm_freq_unified, harm_ampl_unified, fault_labels, params, precision=3)
-        params["fault_type"] = ",".join(fault_types)
-        final_params = {**params, **
-                        {"frequencies": harm_freq_unified, "amplitudes": harm_ampl_unified, "fault_labels": fault_labels}}
-        return final_params
+        harm_freq_unified, harm_ampl_unified, fault_labels, spectrum_params = self._format(
+            harm_freq_unified, harm_ampl_unified, fault_labels, spectrum_params, precision=3)
+        spectrum_params["fault_type"] = ",".join(fault_types)
+        spectrum_data = {
+            "data_type": "synthetic",
+            "frequencies": harm_freq_unified,
+            "amplitudes": harm_ampl_unified,
+            "rps": spectrum_params["rps"]
+        }
+        return spectrum_params, spectrum_data
 
     def _create_only_harmonics(self, params: dict, fmax: int, rps: float, fres: float) -> tuple[list[float], list[float], dict]:
         """
