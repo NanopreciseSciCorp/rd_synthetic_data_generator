@@ -2,9 +2,8 @@ import numpy as np
 import random
 import json
 import os
-import uuid
 from datetime import datetime
-from src.synthetic_data_generator import flatten_values
+from src.synthetic_data_generator import flatten_dict
 
 
 class SyntheticDataNoiser():
@@ -46,14 +45,19 @@ class SyntheticDataNoiser():
         return frequencies, amplitudes
 
     @staticmethod
-    def save(synthetic_data, output_path):
-        synthetic_data["starting_timestamp"] = datetime.now().strftime(
+    def save(synthetic_data, spectrum_params, output_path, n_spectrum):
+        synthetic_data["timestamp"] = datetime.now().strftime(
             '%Y-%m-%d %H:%M:%S')
-        # This UUID is to avoid overwriting files with repeated names
-        data_filename = {key: value for key, value in synthetic_data.items() if key not in [
-            "frequencies", "amplitudes", "fault_labels"]}
-        filename = flatten_values(data_filename) + "_" + str(uuid.uuid4())
-        synthetic_data["tagId"] = filename
-        filepath = os.path.join(output_path, filename + ".json")
-        with open(filepath, 'w') as fp:
+        flat_dict = flatten_dict(spectrum_params)
+        tag_id = '_'.join(str(val) for key, val in flat_dict.items(
+        ) if 'amplitude' not in key and 'harcount' not in key)
+        synthetic_data["tag_id"] = tag_id
+        spectrum_filepath = os.path.join(output_path, "spectra", tag_id +
+                                         '_' + str(n_spectrum) + ".json")
+        with open(spectrum_filepath, 'w') as fp:
             json.dump(synthetic_data, fp)
+
+        params_filepath = os.path.join(output_path, "parameters", tag_id +
+                                       '_' + str(n_spectrum) + ".json")
+        with open(params_filepath, 'w') as fp:
+            json.dump(spectrum_params, fp)

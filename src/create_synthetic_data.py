@@ -2,9 +2,9 @@ import multiprocessing
 import random
 import logging
 import click
+import uuid
 import json
 import os
-import uuid
 from datetime import datetime
 import numpy as np
 from copy import deepcopy
@@ -12,17 +12,13 @@ from src.synthetic_data_generator import SyntethicDataGenerator, flatten_dict, c
 from src.synthetic_data_noiser import SyntheticDataNoiser
 
 
-# Generated amplitudes below this threshold are ignored (MaxAmp * AMPLITUDE_THRESHOLD)
-AMPLITUDE_THRESHOLD = 0.05
-
-
-# @ click.command(help="Script for running synthetic data generator.")
-# @ click.option("--output_path", type=str, required=True, help="Directory to save json files.")
-# @ click.option("--n_peaks_to_split", type=int, required=True, default=5, help="Number of closest neighbors to split peak between.")
-# @ click.option("--n_spectra", type=int, required=True, help="Number of spectra to generate in single scenario (single tag).")
-# @ click.option("--n_scenarios", type=int, required=True, help="Number of scenarios to generate (one scenario - one set of spectra).")
-def run_script(output_path='synthetic_data', n_peaks_to_split=5, n_spectra=200, n_scenarios=5):
-    inputs = [(output_path, n_peaks_to_split, n_spectra, scenario_id)
+@ click.command(help="Script for running synthetic data generator.")
+@ click.option("--output_path", type=str, required=True, help="Directory to save json files.")
+@ click.option("--n_peaks_to_split", type=int, required=True, default=5, help="Number of closest neighbors to split peak between.")
+@ click.option("--n_spectra", type=int, required=True, default=100, help="Number of spectra to generate in single scenario (single tag).")
+@ click.option("--n_scenarios", type=int, required=True, default=5, help="Number of scenarios to generate (one scenario - one set of spectra).")
+def run_script(output_path, n_peaks_to_split, n_spectra, n_scenarios):
+    inputs = [(os.path.join(output_path, str(uuid.uuid4())), n_peaks_to_split, n_spectra, scenario_id)
               for scenario_id in range(1, n_scenarios+1)]
     with multiprocessing.Pool() as pool:
         pool.starmap(prepare_spectra, inputs)
@@ -31,7 +27,11 @@ def run_script(output_path='synthetic_data', n_peaks_to_split=5, n_spectra=200, 
 
 
 def prepare_spectra(output_path, n_peaks_to_split, n_spectra, scenario_id):
-    logging.info(f"Preparing {scenario_id} scenario")
+    os.mkdir(output_path)
+    os.mkdir(os.path.join(output_path, "spectra"))
+    os.mkdir(os.path.join(output_path, "parameters"))
+    logging.info(
+        f"Preparing {scenario_id} scenario and saving to {output_path}")
     fixed_params = {
         "rps": random.choice(np.arange(5, 60, 0.3, dtype=np.float_)),
         "fres": 1,
@@ -53,31 +53,23 @@ def prepare_spectra(output_path, n_peaks_to_split, n_spectra, scenario_id):
     }
     fixed_params["unbalance"]["amplitude"] = random.choice(np.arange(
         fixed_params["rps"]/10, fixed_params["rps"]/2, 1.0, dtype=np.float_))
-    spectra_output = []
     for n_spectrum in range(n_spectra):
         spectrum_params = update_spectrum_params(
             deepcopy(fixed_params), n_spectrum, n_spectra)
 
-        synthetic_data = SyntethicDataGenerator(
+        spectrum_params, synthetic_data = SyntethicDataGenerator(
             n_peaks_to_split).run(spectrum_params)
 
         synthetic_data_noiser = SyntheticDataNoiser(
-            synthetic_data["fmax"], synthetic_data["fres"])
+            spectrum_params["fmax"], spectrum_params["fres"])
         synthetic_data["frequencies"], synthetic_data["amplitudes"] = synthetic_data_noiser.create_random_peaks(
             synthetic_data["frequencies"], synthetic_data["amplitudes"])
         synthetic_data["frequencies"], synthetic_data["amplitudes"] = synthetic_data_noiser.create_white_noise(
             synthetic_data["frequencies"], synthetic_data["amplitudes"])
         synthetic_data["frequencies"], synthetic_data["amplitudes"] = synthetic_data_noiser.sort(
             synthetic_data["frequencies"], synthetic_data["amplitudes"])
-        # synthetic_data_noiser.save(synthetic_data, output_path)
-
-        spectra_output.append(synthetic_data)
-
-    # filename = flatten_values(fixed_params) + "_" + str(uuid.uuid4())
-    filepath = os.path.join(output_path, str(uuid.uuid4()) + ".json")
-    with open(filepath, 'w') as fp:
-        json.dump(spectra_output, fp)
-        logging.info(f"Scenario saved at: {filepath}")
+        synthetic_data_noiser.save(
+            synthetic_data, spectrum_params, output_path, n_spectrum)
 
 
 def update_spectrum_params(spectrum_params: dict, n_spectrum: int, n_spectra: int):
